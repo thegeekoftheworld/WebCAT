@@ -1,0 +1,854 @@
+{
+  "config": {
+    "configFile": "C:\\nick\\WebCAT\\playwright.config.js",
+    "rootDir": "C:/nick/WebCAT/tests",
+    "forbidOnly": false,
+    "fullyParallel": true,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 12
+    },
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "C:/nick/WebCAT/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 12
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "C:/nick/WebCAT/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.57.0",
+    "workers": 12,
+    "webServer": {
+      "command": "node server.js",
+      "url": "http://localhost:8080/api/health",
+      "reuseExistingServer": true,
+      "timeout": 10000
+    }
+  },
+  "suites": [
+    {
+      "title": "driver-ic7300-commands.spec.js",
+      "file": "driver-ic7300-commands.spec.js",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "IC-7300 Command Encoding",
+          "file": "driver-ic7300-commands.spec.js",
+          "line": 45,
+          "column": 6,
+          "specs": [
+            {
+              "title": "cmdSetMode USB emits base mode + data off toggle",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 20,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-01-19T22:10:17.771Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "89cad1a57cb4adca691f-13ad9bcaab72aff6373a",
+              "file": "driver-ic7300-commands.spec.js",
+              "line": 50,
+              "column": 7
+            },
+            {
+              "title": "cmdSetMode USB-D emits base mode + data on toggle",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 13,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-01-19T22:10:17.739Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "89cad1a57cb4adca691f-7ac4520917cb308cff99",
+              "file": "driver-ic7300-commands.spec.js",
+              "line": 72,
+              "column": 7
+            },
+            {
+              "title": "cmdSetSplitTxFreq encodes BCD digits with 0x0F prefix",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 2,
+                      "status": "passed",
+                      "duration": 6,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-01-19T22:10:17.685Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "89cad1a57cb4adca691f-bb7142ab71cad36538b0",
+              "file": "driver-ic7300-commands.spec.js",
+              "line": 92,
+              "column": 7
+            },
+            {
+              "title": "cmdSetRIT clamps to [-9999, 9999] and encodes LE16",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 3,
+                      "status": "passed",
+                      "duration": 12,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-01-19T22:10:17.760Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "89cad1a57cb4adca691f-2cff8abcfae3f7c6fc96",
+              "file": "driver-ic7300-commands.spec.js",
+              "line": 117,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "driver-ic7300.spec.js",
+      "file": "driver-ic7300.spec.js",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Icom IC-7300 Driver Unit Tests",
+          "file": "driver-ic7300.spec.js",
+          "line": 39,
+          "column": 6,
+          "specs": [
+            {
+              "title": "driver loads and exposes required API",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 4,
+                      "status": "passed",
+                      "duration": 29,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-01-19T22:10:17.803Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "6bb0c94e219304478a27-52494f0d510020edf2a2",
+              "file": "driver-ic7300.spec.js",
+              "line": 40,
+              "column": 7
+            },
+            {
+              "title": "availableModes contains common SSB modes",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 5,
+                      "status": "passed",
+                      "duration": 10,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-01-19T22:10:17.735Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "6bb0c94e219304478a27-17b8760c639e6493b925",
+              "file": "driver-ic7300.spec.js",
+              "line": 62,
+              "column": 7
+            },
+            {
+              "title": "cmdSetFreqHz generates bytes",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 6,
+                      "parallelIndex": 6,
+                      "status": "passed",
+                      "duration": 8,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-01-19T22:10:17.744Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "6bb0c94e219304478a27-9177eda07770d559347d",
+              "file": "driver-ic7300.spec.js",
+              "line": 73,
+              "column": 7
+            },
+            {
+              "title": "controlsSchema returns array of control definitions",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 7,
+                      "status": "passed",
+                      "duration": 14,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-01-19T22:10:17.752Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "6bb0c94e219304478a27-08cd8cc28ce030a63ba3",
+              "file": "driver-ic7300.spec.js",
+              "line": 84,
+              "column": 7
+            },
+            {
+              "title": "parseFrame handles sample inbound frame from fixture",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 8,
+                      "parallelIndex": 8,
+                      "status": "passed",
+                      "duration": 10,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-01-19T22:10:17.787Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "6bb0c94e219304478a27-8c27975e7484aa037ed3",
+              "file": "driver-ic7300.spec.js",
+              "line": 94,
+              "column": 7
+            },
+            {
+              "title": "fixture contains at least one freq event in human HF range",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 9,
+                      "parallelIndex": 9,
+                      "status": "passed",
+                      "duration": 13,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-01-19T22:10:17.785Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "6bb0c94e219304478a27-b6119ea92d5bce4f0c70",
+              "file": "driver-ic7300.spec.js",
+              "line": 111,
+              "column": 7
+            },
+            {
+              "title": "fixture contains at least one mode event from available modes",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 10,
+                      "parallelIndex": 10,
+                      "status": "passed",
+                      "duration": 13,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-01-19T22:10:17.772Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "6bb0c94e219304478a27-9b521829f4b25c768793",
+              "file": "driver-ic7300.spec.js",
+              "line": 132,
+              "column": 7
+            },
+            {
+              "title": "fixture contains at least one SWR event with numeric mapping",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 11,
+                      "parallelIndex": 11,
+                      "status": "passed",
+                      "duration": 9,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-01-19T22:10:17.800Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "6bb0c94e219304478a27-8f5cfaea63550ab32e1c",
+              "file": "driver-ic7300.spec.js",
+              "line": 154,
+              "column": 7
+            },
+            {
+              "title": "fixture contains a PTT event (rx/tx status)",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 2,
+                      "status": "passed",
+                      "duration": 3,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-01-19T22:10:17.713Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "6bb0c94e219304478a27-99fc66a2210732fd6603",
+              "file": "driver-ic7300.spec.js",
+              "line": 175,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "mock-session.spec.js",
+      "file": "mock-session.spec.js",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "IC-7300 Mock Session Replay",
+          "file": "mock-session.spec.js",
+          "line": 4,
+          "column": 6,
+          "specs": [
+            {
+              "title": "mock serial API is installed",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 2,
+                      "status": "passed",
+                      "duration": 2629,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "Browser: [WebCAT] Mock serial loaded: {driverId: icom.ic7300, port: COM3, baudRate: 115200, started: 1768857035946, notes: comprehensive}\n"
+                        },
+                        {
+                          "text": "✓ Mock serial API installed\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-01-19T22:10:17.727Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "281f6120173a669b3db9-092a9f1098d332894d7b",
+              "file": "mock-session.spec.js",
+              "line": 10,
+              "column": 7
+            },
+            {
+              "title": "shows Not Connected initially",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 5,
+                      "status": "passed",
+                      "duration": 2527,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "✓ Initial state: Not connected\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-01-19T22:10:17.773Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "281f6120173a669b3db9-303573858be2e5be12c0",
+              "file": "mock-session.spec.js",
+              "line": 21,
+              "column": 7
+            },
+            {
+              "title": "Connect button is clickable",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 6,
+                      "parallelIndex": 6,
+                      "status": "passed",
+                      "duration": 2528,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "✓ Connect button exists and is enabled\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-01-19T22:10:17.777Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "281f6120173a669b3db9-faf3026cf2d62b7e31a3",
+              "file": "mock-session.spec.js",
+              "line": 30,
+              "column": 7
+            },
+            {
+              "title": "Radio panel displays when page loads",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 2529,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "⊘ No radio panel found (expected for stub UI)\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-01-19T22:10:17.782Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "281f6120173a669b3db9-8dde3b976437c035b657",
+              "file": "mock-session.spec.js",
+              "line": 39,
+              "column": 7
+            },
+            {
+              "title": "displays frequency and mode after connect with mock session",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 7,
+                      "status": "timedOut",
+                      "duration": 30065,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "C:\\nick\\WebCAT\\tests\\mock-session.spec.js",
+                            "column": 16,
+                            "line": 58
+                          },
+                          "message": "Error: page.waitForFunction: Test timeout of 30000ms exceeded.\n\n  56 |     await page.locator('button:has-text(\"Connect\")').click();\n  57 |     // Wait for status to reflect connection\n> 58 |     await page.waitForFunction(() => {\n     |                ^\n  59 |       const el = document.querySelector('.status-text');\n  60 |       const txt = (el && el.textContent) || '';\n  61 |       return txt.includes('icom.ic7300') && /\\d/.test(txt);\n    at C:\\nick\\WebCAT\\tests\\mock-session.spec.js:58:16"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-01-19T22:10:17.795Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "C:\\nick\\WebCAT\\test-results\\mock-session-IC-7300-Mock--1e6bc-r-connect-with-mock-session-chromium\\test-failed-1.png"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "C:\\nick\\WebCAT\\test-results\\mock-session-IC-7300-Mock--1e6bc-r-connect-with-mock-session-chromium\\error-context.md"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "281f6120173a669b3db9-27f5d8dfa178ed7fe1c0",
+              "file": "mock-session.spec.js",
+              "line": 52,
+              "column": 7
+            },
+            {
+              "title": "Can switch between tabs",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 3,
+                      "status": "passed",
+                      "duration": 2496,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "✓ Found 3 tabs\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-01-19T22:10:17.809Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "281f6120173a669b3db9-4be2a19d733e6829f648",
+              "file": "mock-session.spec.js",
+              "line": 70,
+              "column": 7
+            },
+            {
+              "title": "disconnect button works",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 10,
+                      "parallelIndex": 10,
+                      "status": "passed",
+                      "duration": 2471,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "⊘ Disconnect button not found (may appear after connection)\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-01-19T22:10:17.822Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "281f6120173a669b3db9-e535389b1ac28b952c9d",
+              "file": "mock-session.spec.js",
+              "line": 84,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-01-19T22:10:15.887Z",
+    "duration": 34793.94,
+    "expected": 19,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  }
+}

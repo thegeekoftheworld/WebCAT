@@ -115,11 +115,13 @@
      * @param {string} opts.driverId
      * @param {object} [opts.driverOptions]
      * @param {SettingsStore} [opts.store]
+     * @param {boolean} [opts.verbose=false]
      */
-    constructor({ driverId, driverOptions = {}, store = new SettingsStore() }) {
+    constructor({ driverId, driverOptions = {}, store = new SettingsStore(), verbose = false }) {
       this.store = store;
       this.driverId = driverId;
       this.driverOptions = driverOptions;
+      this.verbose = verbose;
       this.driver = createDriver(driverId, driverOptions);
 
       this.port = null;
@@ -346,10 +348,23 @@
 
         await this.writer.write(u8);
 
-        if (typeof this.driver.formatTx === 'function') this._emit('log', this.driver.formatTx(u8));
-        else this._emit('log', `TX: ${bytesToHex(u8)}`);
+        if (this.verbose) {
+          if (typeof this.driver.formatTx === 'function') this._emit('log', this.driver.formatTx(u8));
+          else this._emit('log', `TX: ${bytesToHex(u8)}`);
+        }
       });
       return this.writeLock;
+    }
+
+    // Public helper for UI/drivers to send one or many raw driver commands
+    async sendCommand(cmd) {
+      this._ensureConnected();
+      if (!cmd) throw new Error('No command');
+      if (Array.isArray(cmd)) {
+        for (const c of cmd) await this.send(c);
+      } else {
+        await this.send(cmd);
+      }
     }
 
     async _readLoop() {
@@ -369,8 +384,10 @@
           const bytes = (f instanceof Uint8Array) ? f : (f && f.bytes instanceof Uint8Array ? f.bytes : null);
           if (!bytes) continue;
 
-          if (typeof this.driver.formatRx === 'function') this._emit('log', this.driver.formatRx(bytes));
-          else this._emit('log', `RX: ${bytesToHex(bytes)}`);
+          if (this.verbose) {
+            if (typeof this.driver.formatRx === 'function') this._emit('log', this.driver.formatRx(bytes));
+            else this._emit('log', `RX: ${bytesToHex(bytes)}`);
+          }
 
           const events = (this.driver.parseFrame.length >= 2)
             ? this.driver.parseFrame(f, this.ctx)
@@ -532,7 +549,14 @@
       this._ensureConnected();
       if (typeof this.driver.cmdSetMode !== 'function') throw new Error('Driver does not support setMode');
       await this._withPollingPaused(async () => {
-        await this.send(this.driver.cmdSetMode(modeName, this.ctx));
+        const cmd = this.driver.cmdSetMode(modeName, this.ctx);
+        if (Array.isArray(cmd)) {
+          for (const c of cmd) await this.send(c);
+        } else {
+          await this.send(cmd);
+        }
+        // Allow rig time to settle mode change before immediate readback
+        try { await WebCAT.utils.sleep(150); } catch {}
         if (typeof this.driver.cmdReadMode === 'function') await this.send(this.driver.cmdReadMode());
         if (typeof this.driver.cmdReadFreqMode === 'function') await this.send(this.driver.cmdReadFreqMode());
       });
@@ -550,13 +574,95 @@
   }
 
   // ---------- Public API ----------
+  /**
+   * Utility functions for radio control.
+   * @type {object}
+   * @property {function} clamp(n, min, max) - Constrain a number
+   * @property {function} hex2(byte) - Convert byte to 2-char hex string
+   * @property {function} bytesToHex(uint8array) - Convert bytes to space-separated hex
+   * @property {function} parseHexByte(str) - Parse "0xAB" or "AB" to byte
+   * @property {function} sleep(ms) - Return promise that resolves after ms
+   * @property {function} lerp(a, b, t) - Linear interpolation
+   * @property {function} interp1D(x, points) - 1D interpolation from [{x, y}] array
+   */
   WebCAT.utils = { clamp, hex2, bytesToHex, parseHexByte, sleep, lerp, interp1D };
+
+  /**
+   * Browser localStorage wrapper for UI settings and port hints.
+   * @class SettingsStore
+   * @constructor
+   * @param {string} [namespace='radio_serial'] - localStorage key prefix
+   * @method loadUI() - Get saved UI config
+   * @method saveUI(patch) - Merge patch into UI config
+   * @method clearAll() - Erase all settings
+   * @method savePortHint(portInfo) - Store port USB IDs for reconnection
+   * @method loadPortHint() - Retrieve port hint
+   */
   WebCAT.SettingsStore = SettingsStore;
 
+  /**
+   * Register a radio driver.
+   * @function registerDriver
+   * @param {string} id - Unique driver ID (e.g., "icom.ic7300", "yaesu.ft991a")
+   * @param {function} factory - Factory function(options) returning driver instance
+   * @param {object} [meta] - Driver metadata
+   * @param {string} [meta.label] - Human-readable label (e.g., "Icom IC-7300")
+   * @param {number} [meta.defaultBaud] - Default baud rate
+   * @param {number[]} [meta.allowedBauds] - Supported baud rates
+   * @throws Error if id or factory are invalid
+   */
   WebCAT.registerDriver = registerDriver;
+
+  /**
+   * List all registered drivers.
+   * @function listDrivers
+   * @returns {object[]} Array of {id, label, defaultBaud, ...}
+   */
   WebCAT.listDrivers = listDrivers;
+
+  /**
+   * Get metadata for a driver.
+   * @function getDriverMeta
+   * @param {string} id - Driver ID
+   * @returns {object|null} Metadata object or null if not found
+   */
   WebCAT.getDriverMeta = getDriverMeta;
+
+  /**
+   * Create a driver instance.
+   * @function createDriver
+   * @param {string} id - Driver ID
+   * @param {object} [options] - Driver-specific options
+   * @returns {object} Driver instance with parseFrame(), cmd*() methods, controlsSchema()
+   * @throws Error if driver not found
+   */
   WebCAT.createDriver = createDriver;
+
+  /**
+   * Main radio controller class for WebSerial communication.
+   * @class RadioController
+   * @constructor
+   * @param {object} opts
+   * @param {string} opts.driverId - Driver ID (e.g., "icom.ic7300")
+   * @param {object} [opts.driverOptions] - Driver-specific options
+   * @param {SettingsStore} [opts.store] - Settings storage (defaults to new SettingsStore)
+   * @param {boolean} [opts.verbose] - Enable debug logging
+   * 
+   * @method connectWithPicker(options) - Show WebSerial picker and connect
+   * @method disconnect() - Close serial port
+   * @method startPolling(intervalMs) - Begin periodic status reads
+   * @method stopPolling() - Stop polling
+   * @method setFrequencyHz(hz) - Tune to frequency
+   * @method setMode(mode) - Switch mode
+   * @method setPTT(on) - Key/unkey
+   * @method sendCommand(uint8array) - Send raw bytes
+   * 
+   * @fires RadioController#log - Debug messages
+   * @fires RadioController#update - State changed {freqHz, mode, ptt, power, ...}
+   * @fires RadioController#error - Error event
+   * @fires RadioController#connected - Serial port opened
+   * @fires RadioController#disconnected - Serial port closed
+   */
   WebCAT.RadioController = RadioController;
 
   global.WebCAT = WebCAT;

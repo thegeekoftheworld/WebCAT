@@ -220,4 +220,4 @@
       defaultAddrHex: 'A2'
     }
   );
-})(window);
+})(typeof window !== 'undefined' ? window : globalThis);

@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebCAT - Ham Radio Control</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="tools/mock-serial.js"></script>
+  <script src="components/radio-panel.js"></script>
+  <script src="components/qso-form.js"></script>
+  <script src="components/console-panel.js"></script>
+  <style>
+    body { margin: 0; font-family: Arial, sans-serif; background: #0b0d17; color: #e5e7f0; }
+    #app { max-width: 1100px; margin: 0 auto; padding: 20px; }
+    .header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .status-text { color: #9aa3b5; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+    .tab-btn { padding: 10px 16px; border: 1px solid #243045; background: #151b28; color: #e5e7f0; border-radius: 6px; cursor: pointer; }
+    .tab-btn.active { background: #1f2a3d; border-color: #3a7bd5; }
+    .panel { background: #111827; border: 1px solid #243045; border-radius: 10px; padding: 16px; }
+    .radio-setup { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .form-group { display: flex; flex-direction: column; gap: 6px; }
+    .form-group label { font-size: 12px; color: #9aa3b5; }
+    input, select { padding: 10px; border-radius: 6px; border: 1px solid #243045; background: #0f1724; color: #e5e7f0; }
+    .radio-display { background: linear-gradient(135deg, #12263f, #0c1424); border: 1px solid #1f2a3d; border-radius: 10px; padding: 16px; }
+    .freq-display { font-size: 28px; font-weight: 600; margin-bottom: 6px; }
+    .mode-display { color: #9aa3b5; margin-bottom: 12px; }
+    .freq-buttons { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 8px; margin-bottom: 12px; }
+    .freq-btn { padding: 10px; border-radius: 8px; border: 1px solid #243045; background: #1b2435; color: #e5e7f0; cursor: pointer; }
+    .ptt-button { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #243045; background: #1c2d45; color: #e5e7f0; font-size: 18px; cursor: pointer; }
+    .ptt-button.tx { background: #9a1c1c; }
+    .control-item { margin-bottom: 10px; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-bottom: 16px; }
+    .stat { background: #151b28; border: 1px solid #243045; border-radius: 8px; padding: 10px; text-align: center; }
+    .stat .value { font-size: 22px; font-weight: 600; }
+    .stat .label { color: #9aa3b5; font-size: 12px; }
+    .qso-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 12px; }
+    .btn { border: none; border-radius: 8px; padding: 10px 14px; cursor: pointer; color: #e5e7f0; }
+    .btn-success { background: #1f8b4c; }
+    .btn-danger { background: #b93737; }
+    .btn-primary { background: #3a7bd5; }
+    .btn-secondary { background: #1b2435; border: 1px solid #243045; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 8px; text-align: left; border-bottom: 1px solid #243045; }
+    th { color: #9aa3b5; font-weight: 500; }
+    .dupe-warning { color: #f97316; font-weight: 600; }
+    .console { background: #0f1724; border: 1px solid #243045; border-radius: 8px; padding: 10px; height: 280px; overflow: auto; font-family: "SFMono-Regular", Consolas, monospace; }
+    .console-line { display: flex; gap: 8px; margin-bottom: 4px; }
+    .console-time { color: #9aa3b5; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="header">
+      <h1>📻 WebCAT</h1>
+      <div class="status-text">
+        {{ stationId }} |
+        <span v-if="radio.connected">{{ radio.driver }} @ {{ displayFreq }} {{ radio.mode }}</span>
+        <span v-else style="color: #999;">Not connected</span>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn" :class="{active: tab === 'radio'}" @click="tab = 'radio'">Radio</button>
+      <button class="tab-btn" :class="{active: tab === 'log'}" @click="tab = 'log'">Log</button>
+      <button class="tab-btn" :class="{active: tab === 'console'}" @click="tab = 'console'">Console</button>
+    </div>
+
+    <div v-show="tab === 'radio'" class="panel">
+      <div class="radio-setup">
+        <div class="form-group">
+          <label>Driver</label>
+          <select v-model="config.driver">
+            <option value="icom.ic7300">IC-7300</option>
+            <option value="icom.ic9700">IC-9700</option>
+            <option value="yaesu.ft991a">FT-991A</option>
+            <option value="yaesu.ft857d">FT-857D</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Baud</label>
+          <select v-model.number="config.baud">
+            <option :value="300">300</option>
+            <option :value="600">600</option>
+            <option :value="1200">1200</option>
+            <option :value="2400">2400</option>
+            <option :value="4800">4800</option>
+            <option :value="9600">9600</option>
+            <option :value="14400">14400</option>
+            <option :value="19200">19200</option>
+            <option :value="38400">38400</option>
+            <option :value="57600">57600</option>
+            <option :value="115200">115200</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Poll (ms)</label>
+          <input type="number" v-model.number="config.poll" min="50" />
+        </div>
+        <div class="form-group" style="justify-content: flex-end;">
+          <button v-if="!radio.connected" class="btn btn-success" @click="connect">Connect</button>
+          <button v-else class="btn btn-danger" @click="disconnect">Disconnect</button>
+        </div>
+      </div>
+
+      <radio-panel
+        :radio="radio"
+        :config="config"
+        :display-freq="displayFreq"
+        :current-controls="currentControls || []"
+        :control-values="controlValues || {}"
+        @manual-read="manualRead"
+        @adj-freq="adjFreq"
+        @control-change="onControlChange"
+        @ptt="ptt"
+      ></radio-panel>
+    </div>
+
+    <div v-show="tab === 'log'" class="panel">
+      <qso-form
+        :qso="qso"
+        :qsos="qsos"
+        :stats="stats"
+        :isDupe="isDupe"
+        :radio="radio"
+        @checkDupe="checkDupe"
+        @logQSO="logQSO"
+      ></qso-form>
+    </div>
+
+    <div v-show="tab === 'console'" class="panel">
+      <console-panel
+        :logs="logs"
+        @clear="logs = []"
+      ></console-panel>
+    </div>
+  </div>
+
+  <script src="webcat-base.js"></script>
+  <script src="drivers/webcat-icom-ic7300.js"></script>
+  <script src="drivers/webcat-icom-ic9700.js"></script>
+  <script src="drivers/webcat-yaesu-ft991a.js"></script>
+  <script src="drivers/webcat-yaesu-ft857d.js"></script>
+  <script>
+    const { createApp } = Vue;
+
+    createApp({
+      components: {
+        RadioPanel: window.RadioPanel,
+        QSOForm: window.QSOForm,
+        ConsolePanel: window.ConsolePanel
+      },
+      data() {
+        return {
+          tab: 'radio',
+          stationId: 'STATION',
+          config: { driver: 'icom.ic7300', baud: 19200, poll: 200 },
+          radio: { connected: false, ctrl: null, driver: '', freq: 0, mode: '', ptt: false, state: {} },
+          qso: { call: '', freq: 0, mode: '', rst_sent: '59', rst_rcvd: '59', operator: '' },
+          qsos: [],
+          stats: { total: 0, today: 0, bands: 0 },
+          logs: [],
+          isDupe: false,
+          controlValues: {},
+          controls: []
+        };
+      },
+      computed: {
+        displayFreq() {
+          const mhz = Math.floor(this.radio.freq / 1000000);
+          const khz = Math.floor((this.radio.freq % 1000000) / 1000);
+          const hz = this.radio.freq % 1000;
+          return `${mhz}.${String(khz).padStart(3, '0')}.${String(hz).padStart(3, '0')}`;
+        },
+        currentControls() { return this.controls; }
+      },
+      mounted() {
+        fetch('/api/health').then(r => r.json()).then(d => this.stationId = d.stationId).catch(() => {});
+        this.loadQSOs();
+        this.updateBaudFromDriver();
+      },
+      watch: {
+        'config.driver'() {
+          this.updateBaudFromDriver();
+        }
+      },
+      methods: {
+        updateBaudFromDriver() {
+          const meta = WebCAT.getDriverMeta(this.config.driver);
+          if (meta && meta.defaultBaud) {
+            this.config.baud = meta.defaultBaud;
+          }
+        },
+        async connect() {
+          try {
+            this.radio.ctrl = new WebCAT.RadioController({ driverId: this.config.driver, verbose: true });
+            this.radio.driver = this.config.driver;
+            this.radio.ctrl.on('log', m => this.log(m));
+            this.radio.ctrl.on('update', s => this.onState(s));
+            this.radio.ctrl.on('error', e => this.log('❌ ' + e.message));
+            this.radio.ctrl.on('connected', () => this.log('✓ Serial connected'));
+            this.radio.ctrl.on('disconnected', () => this.log('✗ Serial disconnected'));
+
+            await this.radio.ctrl.connectWithPicker({ baudRate: this.config.baud });
+            this.radio.connected = true;
+            
+            // Load control schema from driver
+            console.log('Radio controller:', this.radio.ctrl);
+            console.log('Driver instance:', this.radio.ctrl.driver);
+            console.log('Driver has controlsSchema:', typeof this.radio.ctrl?.driver?.controlsSchema);
+            
+            const schema = this.radio.ctrl?.driver?.controlsSchema?.();
+            console.log('Schema result:', schema);
+            
+            // Direct array assignment + force update
+            this.controls = Array.isArray(schema) ? [...schema] : [];
+            this.controlValues = {};
+            this.$forceUpdate();
+            
+            console.log('Controls assigned:', this.controls.length);
+            console.log('CurrentControls:', this.currentControls.length);
+
+            this.radio.ctrl.startPolling(this.config.poll);
+            this.log('✓ Connected to ' + this.config.driver);
+          } catch (e) {
+            this.log('✗ Failed: ' + e.message);
+            alert('Connection failed: ' + e.message);
+          }
+        },
+        disconnect() {
+          if (this.radio.ctrl) {
+            this.radio.ctrl.disconnect();
+            this.radio.ctrl = null;
+          }
+          this.radio.connected = false;
+          this.controls = [];
+          this.log('Disconnected');
+        },
+        onState(s) {
+          this.radio.freq = s.freqHz || this.radio.freq;
+          this.radio.mode = s.mode || this.radio.mode;
+          this.radio.ptt = s.ptt || false;
+          this.radio.state = s;
+
+          if (this.radio.freq) this.qso.freq = this.radio.freq;
+          if (this.radio.mode) this.qso.mode = this.radio.mode;
+
+          this.updateControlDisplayValues();
+        },
+        updateControlDisplayValues() {
+          const updated = { ...this.controlValues };
+          this.controls.forEach(ctrl => {
+            if (typeof ctrl.read === 'function') {
+              try {
+                const value = ctrl.read(this.radio.state);
+                if (value !== undefined) {
+                  updated[ctrl.id] = value;
+                }
+              } catch (e) {
+                this.log(`Error reading ${ctrl.id}: ${e.message}`);
+              }
+            }
+          });
+          this.controlValues = updated;
+        },
+        async onControlChange(ctrl, newValue) {
+          if (!this.radio.ctrl) return;
+          try {
+            if (typeof ctrl.apply === 'function') {
+              await ctrl.apply(this.radio.ctrl, newValue);
+              this.log(`Set ${ctrl.label} = ${newValue}`);
+            }
+          } catch (e) {
+            this.log(`Error: ${e.message}`);
+          }
+        },
+        async adjFreq(delta) {
+          if (!this.radio.ctrl) return;
+          const f = Math.max(0, (this.radio.freq || 0) + delta);
+          await this.radio.ctrl.setFrequencyHz(f);
+        },
+        async manualRead() {
+          if (!this.radio.ctrl || !this.radio.ctrl.driver) return;
+          this.log('→ Manual read triggered');
+          try {
+            if (typeof this.radio.ctrl.driver.cmdReadFreq === 'function') {
+              const cmd = this.radio.ctrl.driver.cmdReadFreq();
+              await this.radio.ctrl.sendCommand(cmd);
+            }
+          } catch (e) {
+            this.log('Manual read error: ' + e.message);
+          }
+        },
+        async ptt(on) {
+          if (this.radio.ctrl) await this.radio.ctrl.setPTT(on);
+        },
+        async logQSO() {
+          if (!this.qso.call.trim()) { alert('Callsign required'); return; }
+          try {
+            const res = await fetch('/api/qsos', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                call: this.qso.call.toUpperCase(),
+                freq: this.qso.freq || this.radio.freq,
+                mode: this.qso.mode || this.radio.mode,
+                rst_sent: this.qso.rst_sent,
+                rst_rcvd: this.qso.rst_rcvd,
+                operator: this.qso.operator,
+                timestamp: new Date().toISOString()
+              })
+            });
+            if (res.ok) {
+              this.log('Logged: ' + this.qso.call);
+              this.qso.call = '';
+              this.qso.operator = '';
+              this.isDupe = false;
+              this.loadQSOs();
+            } else {
+              this.log('Log failed');
+            }
+          } catch (e) {
+            alert('Log error: ' + e.message);
+          }
+        },
+        async checkDupe() {
+          if (this.qso.call.length < 2) { this.isDupe = false; return; }
+          try {
+            const res = await fetch(`/api/qsos/dupe/${this.qso.call.toUpperCase()}`);
+            const data = await res.json();
+            this.isDupe = data.dupe;
+          } catch {
+            this.isDupe = false;
+          }
+        },
+        async loadQSOs() {
+          try {
+            const res = await fetch('/api/qsos?limit=50');
+            const data = await res.json();
+            if (data.ok) {
+              this.qsos = data.qsos;
+              this.stats.total = data.total;
+              const today = new Date().toISOString().split('T')[0];
+              this.stats.today = data.qsos.filter(q => q.timestamp.startsWith(today)).length;
+              this.stats.bands = new Set(data.qsos.map(q => {
+                const mhz = q.freq / 1000000;
+                if (mhz >= 1.8 && mhz < 2) return '160';
+                if (mhz >= 3.5 && mhz < 4) return '80';
+                if (mhz >= 7 && mhz < 7.3) return '40';
+                if (mhz >= 14 && mhz < 14.35) return '20';
+                if (mhz >= 21 && mhz < 21.45) return '15';
+                if (mhz >= 28 && mhz < 29.7) return '10';
+                return 'Other';
+              })).size;
+            }
+          } catch (e) {
+            this.log('Load error: ' + e.message);
+          }
+        },
+        log(msg) {
+          if (this.logs.length >= 500) {
+            this.logs.shift();
+          }
+          this.logs.push({
+            time: new Date().toLocaleTimeString(),
+            msg: String(msg).substring(0, 200)
+          });
+        },
+        formatTime(ts) {
+          return new Date(ts).toLocaleTimeString();
+        },
+        formatFreq(f) {
+          return (f / 1000000).toFixed(3) + ' MHz';
+        }
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>

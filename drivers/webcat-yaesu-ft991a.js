@@ -176,4 +176,4 @@
       needsAddr: false,
     }
   );
-})(window);
+})(typeof window !== 'undefined' ? window : globalThis);

@@ -66,6 +66,8 @@
     cmdReadTuningStep() { return this.transport.buildFrame(Uint8Array.from([0x1F, 0x10])); }
     cmdReadSplitTxFreq() { return this.transport.buildFrame(Uint8Array.from([0x0F])); }
     cmdReadMeterType()  { return this.transport.buildFrame(Uint8Array.from([0x15, 0x07])); }
+    // Data mode status (function group)
+    cmdReadDataMode()   { return this.transport.buildFrame(Uint8Array.from([0x1A, 0x06])); }
 
     // Control commands
     cmdSetFreqHz(hz) {
@@ -86,13 +88,33 @@
 
     cmdSetMode(modeName) {
       const m = String(modeName || '').toUpperCase();
-      const map = {
-        'LSB': 0x00, 'USB': 0x01, 'AM': 0x02, 'CW': 0x03, 'RTTY': 0x04, 'FM': 0x05,
-        'CW-R': 0x07, 'CWR': 0x07, 'RTTY-R': 0x08, 'DV': 0x17, 'DD': 0x22
+      // IC-7300 notes: Set base mode via 0x06, toggle data mode via 0x1A 0x06 {00|01}
+      // We map DATA-* aliases to base modes and explicitly toggle data mode.
+      const isDigital = (mm) => (
+        mm === 'LSB-D' || mm === 'USB-D' || mm === 'AM-D' || mm === 'CW-D' || mm === 'RTTY-D' || mm === 'FM-D'
+      );
+
+      const baseModeFor = (mm) => {
+        const table = {
+          'LSB': 0x00, 'USB': 0x01, 'AM': 0x02, 'CW': 0x03, 'RTTY': 0x04, 'FM': 0x05,
+          'CW-R': 0x07, 'RTTY-R': 0x08, 'DV': 0x17, 'DD': 0x22,
+          'LSB-D': 0x00, 'USB-D': 0x01, 'AM-D': 0x02, 'CW-D': 0x03, 'RTTY-D': 0x04, 'FM-D': 0x05
+        };
+        return table[mm];
       };
-      const code = map[m];
-      if (code == null) throw new Error(`IC-7300 unsupported mode: ${modeName}`);
-      return this.transport.buildFrame(Uint8Array.from([0x06, code]));
+
+      const baseMode = baseModeFor(m);
+      if (baseMode == null) throw new Error(`IC-7300 unsupported mode: ${modeName}`);
+
+      const frames = [];
+      // Set base mode first (filter byte omitted for now)
+      frames.push(this.transport.buildFrame(Uint8Array.from([0x06, baseMode])));
+
+      // Toggle data mode explicitly
+      const dataOn = isDigital(m) ? 0x01 : 0x00;
+      frames.push(this.transport.buildFrame(Uint8Array.from([0x1A, 0x06, dataOn])));
+
+      return frames;
     }
 
     cmdSetPTT(on) {
@@ -224,7 +246,7 @@
         this.cmdReadCompression(), this.cmdReadFilterBW(), this.cmdReadNoiseBlanker(),
         this.cmdReadAutoNotch(), this.cmdReadPreamp(), this.cmdReadAGC(),
         this.cmdReadMonitor(), this.cmdReadVFOLock(), this.cmdReadTuningStep(),
-        this.cmdReadATUStatus(), this.cmdReadMeterType()
+        this.cmdReadATUStatus(), this.cmdReadMeterType(), this.cmdReadDataMode()
       ];
     }
 
@@ -269,7 +291,10 @@
       const mode = data[0];
       const modeMap = {
         0x00:'LSB',0x01:'USB',0x02:'AM',0x03:'CW',0x04:'RTTY',0x05:'FM',
-        0x07:'CW-R',0x08:'RTTY-R',0x17:'DV',0x22:'DD'
+        0x07:'CW-R',0x08:'RTTY-R',0x17:'DV',0x22:'DD',
+        // Digital modes
+        0x80:'LSB-D', 0x81:'USB-D', 0x82:'AM-D', 0x83:'CW-D',
+        0x84:'RTTY-D', 0x85:'FM-D', 0x87:'CWR-D', 0x88:'RTTY-R-D'
       };
       return modeMap[mode] || `0x${hex2(mode)}`;
     }
@@ -381,6 +406,15 @@
         if (rest[0] === 0x08) return [{ type: 'atu', status: rest[1] }];
       }
 
+      // Function group responses
+      if (cmd === 0x1A && rest.length >= 1) {
+        const sub = rest[0];
+        if (sub === 0x06) {
+          const on = rest.length >= 2 ? (rest[1] === 0x01) : undefined;
+          if (on != null) return [{ type: 'extra', data: { datamode: !!on } }];
+        }
+      }
+
       if (cmd === 0x1F && rest.length >= 2) {
         if (rest[0] === 0x05) return [{ type: 'vfolock', on: rest[1] === 0x01 }];
         if (rest[0] === 0x10) return [{ type: 'tuningstep', step: rest[1] }];
@@ -401,6 +435,147 @@
 
     formatTx(u8) { return `TX_CIV: ${WebCAT.utils.bytesToHex(u8)}`; }
     formatRx(u8) { return `RX_CIV: ${WebCAT.utils.bytesToHex(u8)}`; }
+
+    // ---- Dynamic UI support ----
+    availableModes() {
+      return [
+        'LSB','USB','AM','CW','RTTY','FM',
+        'CW-R','RTTY-R','DV','DD',
+        'LSB-D','USB-D','AM-D','CW-D','RTTY-D','FM-D'
+      ];
+    }
+
+    controlsSchema() {
+      // Each control provides a descriptor with how to read current value from state and how to apply a new one
+      const readPath = (obj, path) => {
+        const parts = path.split('.');
+        let cur = obj; for (const p of parts) { if (!cur) return undefined; cur = cur[p]; }
+        return cur;
+      };
+      return [
+        // === PRIMARY CONTROLS ===
+        {
+          id: 'frequencyMHz', label: 'Frequency (MHz)', kind: 'number', group: 'primary',
+          step: 0.000001, toFixed: 6,
+          read: (state) => state.freqHz ? (state.freqHz/1e6) : undefined,
+          apply: async (radio, v) => radio.setFrequencyMHz(Number(v))
+        },
+        {
+          id: 'mode', label: 'Mode', kind: 'select', group: 'primary',
+          options: this.availableModes().map(m => ({ value: m, label: m })),
+          read: (state) => {
+            const base = state.mode;
+            const d = !!(state.extras && state.extras.datamode);
+            if (d && base === 'LSB') return 'LSB-D';
+            if (d && base === 'USB') return 'USB-D';
+            if (d && base && base !== 'FM' && base !== 'AM') return 'DIG';
+            return base;
+          },
+          apply: async (radio, v) => radio.setMode(String(v))
+        },
+
+        // === AUDIO CONTROLS ===
+        {
+          id: 'af', label: 'AF Gain', kind: 'range', group: 'audio', min: 0, max: 255, step: 1,
+          read: (state) => readPath(state, 'af.raw'),
+          apply: async (radio, v) => radio.sendCommand(radio.driver.cmdSetAF(Number(v)))
+        },
+        {
+          id: 'rf', label: 'RF Gain', kind: 'range', group: 'audio', min: 0, max: 255, step: 1,
+          read: (state) => readPath(state, 'rf.raw'),
+          apply: async (radio, v) => radio.sendCommand(radio.driver.cmdSetRF(Number(v)))
+        },
+        {
+          id: 'sql', label: 'Squelch', kind: 'range', group: 'audio', min: 0, max: 255, step: 1,
+          read: (state) => readPath(state, 'sql.raw'),
+          apply: async (radio, v) => radio.sendCommand(radio.driver.cmdSetSQL(Number(v)))
+        },
+
+        // === TRANSMIT CONTROLS ===
+        {
+          id: 'ptt', label: 'PTT', kind: 'toggle', group: 'transmit',
+          read: (state) => !!state.ptt,
+          apply: async (radio, on) => radio.setPTT(!!on)
+        },
+        {
+          id: 'txpwr', label: 'TX Power', kind: 'range', group: 'transmit', min: 0, max: 255, step: 1,
+          read: (state) => readPath(state, 'txpwr.raw'),
+          apply: async (radio, v) => radio.sendCommand(radio.driver.cmdSetTXPower(Number(v)))
+        },
+        {
+          id: 'compression', label: 'Speech Comp', kind: 'range', group: 'transmit', min: 0, max: 255, step: 1,
+          read: (state) => readPath(state, 'compression.raw'),
+          apply: async (radio, v) => radio.sendCommand(radio.driver.cmdSetCompression(Number(v)))
+        },
+        {
+          id: 'monitor', label: 'Monitor', kind: 'range', group: 'transmit', min: 0, max: 255, step: 1,
+          read: (state) => readPath(state, 'monitor.raw'),
+          apply: async (radio, v) => radio.sendCommand(radio.driver.cmdSetMonitor(Number(v)))
+        },
+
+        // === FILTER & DSP ===
+        {
+          id: 'filterbw', label: 'Filter Width', kind: 'range', group: 'filter', min: 0, max: 255, step: 1,
+          read: (state) => readPath(state, 'filterbw.raw'),
+          apply: async (radio, v) => radio.sendCommand(radio.driver.cmdSetFilterBW(Number(v)))
+        },
+        {
+          id: 'nb', label: 'Noise Blanker', kind: 'range', group: 'filter', min: 0, max: 255, step: 1,
+          read: (state) => readPath(state, 'nb.raw'),
+          apply: async (radio, v) => radio.sendCommand(radio.driver.cmdSetNoiseBlanker(Number(v)))
+        },
+        {
+          id: 'autonotch', label: 'Auto Notch', kind: 'toggle', group: 'filter',
+          read: (state) => !!readPath(state, 'autonotch.raw'),
+          apply: async (radio, on) => radio.sendCommand(radio.driver.cmdSetAutoNotch(!!on))
+        },
+        {
+          id: 'preamp', label: 'Preamp/Atten', kind: 'select', group: 'filter',
+          options: [
+            { value: 0, label: 'Off' }, { value: 1, label: 'P.AMP +10dB' }, 
+            { value: 2, label: 'ATT -10dB' }, { value: 3, label: 'ATT -20dB' }
+          ],
+          read: (state) => readPath(state, 'preamp.raw'),
+          apply: async (radio, v) => radio.sendCommand(radio.driver.cmdSetPreamp(Number(v)))
+        },
+        {
+          id: 'agc', label: 'AGC Speed', kind: 'select', group: 'filter',
+          options: [
+            { value: 0, label: 'Fast' }, { value: 1, label: 'Mid' }, { value: 2, label: 'Slow' }
+          ],
+          read: (state) => readPath(state, 'agc.raw'),
+          apply: async (radio, v) => radio.sendCommand(radio.driver.cmdSetAGC(Number(v)))
+        },
+
+        // === OFFSET CONTROLS ===
+        {
+          id: 'rit', label: 'RIT Offset (Hz)', kind: 'number', group: 'offset', step: 10, min: -9999, max: 9999,
+          read: (state) => readPath(state, 'rit.offset'),
+          apply: async (radio, v) => radio.sendCommand(radio.driver.cmdSetRIT(Number(v)))
+        },
+        {
+          id: 'xit', label: 'XIT Offset (Hz)', kind: 'number', group: 'offset', step: 10, min: -9999, max: 9999,
+          read: (state) => readPath(state, 'xit.offset'),
+          apply: async (radio, v) => radio.sendCommand(radio.driver.cmdSetXIT(Number(v)))
+        },
+
+        // === ADVANCED ===
+        {
+          id: 'vfolock', label: 'VFO Lock', kind: 'toggle', group: 'advanced',
+          read: (state) => !!readPath(state, 'vfolock.on'),
+          apply: async (radio, on) => radio.sendCommand(radio.driver.cmdSetVFOLock(!!on))
+        },
+        {
+          id: 'tuningstep', label: 'Tuning Step', kind: 'select', group: 'advanced',
+          options: [
+            { value: 0, label: '1 Hz' }, { value: 1, label: '10 Hz' }, 
+            { value: 2, label: '100 Hz' }, { value: 3, label: '1 kHz' }
+          ],
+          read: (state) => readPath(state, 'tuningstep.step'),
+          apply: async (radio, v) => radio.sendCommand(radio.driver.cmdSetTuningStep(Number(v)))
+        }
+      ];
+    }
   }
 
   WebCAT.registerDriver(
@@ -408,10 +583,10 @@
     (options) => new IcomIC7300Driver(options),
     {
       label: 'Icom IC-7300 (CI-V)',
-      defaultBaud: 19200,
+      defaultBaud: 115000,
       allowedBauds: WebCAT.COMMON_BAUDS,
       needsAddr: true,
       defaultAddrHex: '94'
     }
   );
-})(window);
+})(typeof window !== 'undefined' ? window : globalThis);

@@ -1,0 +1,21 @@
+node_modules/
+*.log
+logs/
+webcat.db
+.DS_Store
+.env
+.env.local
+
+# Browser test artifacts
+test-results/
+playwright-report/
+.playwright-mcp/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+Thumbs.db

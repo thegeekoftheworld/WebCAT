@@ -1,52 +1,163 @@
-# WebCAT (WebSerial Ham Radio Control Library)
+# WebCAT - Distributed Ham Radio Control & Logging
 
-A small browser-side JavaScript library that lets you talk to radios over **WebSerial** using a **base controller** plus **driver add-ons**.
+A browser-based, hardware-agnostic ham radio control system optimized for field operations, contesting, and multi-operator events.
 
-- Load `webcat-base.js` first.
-- Load one or more driver files (e.g., `drivers/webcat-yaesu-ft991a.js`).
-- Create a `WebCAT.RadioController` and control the radio through the controller API.
+## Vision
 
-This is designed so you can reuse the same drivers across multiple pages/apps.
+**WebCAT** (Web-based Communications and Amateur Transceiver) enables:
+- **Distributed-first**: Multiple stations share a unified log over LAN (MQTT)
+- **Hardware-agnostic**: Works with any radio via pluggable drivers (Icom CI-V, Yaesu CAT, Hamlib)
+- **Field-ready**: Optimized for Field Day, SOTA, POTA, contesting
+- **Platform-neutral**: Browser-based (Windows/Linux/Mac) or native (Electron/Tauri)
 
-## Files
-
-- `webcat-base.js` — base library (registry + controller)
-- `drivers/webcat-icom-ic9700.js` — Icom IC-9700 CI-V driver
-- `drivers/webcat-yaesu-ft991a.js` — Yaesu FT-991A ASCII CAT driver (includes your calibrations as defaults)
-- `drivers/webcat-yaesu-ft857d.js` — Yaesu FT-857D 5-byte CAT driver (8N2)
-- `demo.html` — simple test harness
+See [agents.md](agents.md) for full architecture and roadmap.
 
 ## Quick Start
 
-```html
-<script src="webcat-base.js"></script>
-<script src="drivers/webcat-yaesu-ft991a.js"></script>
-<script>
-  const RS = window.WebCAT;
-  const store = new RS.SettingsStore('my_app');
+### 1. Install
+```bash
+npm install
+```
 
-  const radio = new RS.RadioController({
-    driverId: 'yaesu.ft991a',
-    driverOptions: {
-      // optional overrides
-      // swrPoints: [...], voltPoints: [...], ampPerRaw: 0.1,
-    },
-    store
-  });
+### 2. Start the server
+```bash
+npm start
+# Runs on http://localhost:8080
+```
 
-  radio.on('log', console.log);
-  radio.on('update', (state) => console.log('state', state));
+### 3. Open the UI
+```
+http://localhost:8080
+```
 
-  // First time (requires user gesture):
-  await radio.connectWithPicker({ baudRate: 38400, rememberPort: true });
+Then:
+- Select your radio driver from the dropdown
+- Click "Connect" and choose your serial port
+- Use the Radio tab to tune frequency, change mode, adjust controls
+- Use the Log tab to enter QSOs
+- Use the Console tab for debug messages
 
-  // Auto-poll
-  radio.startPolling(200);
+## Architecture
 
-  // Control
-  await radio.setFrequencyMHz(146.520);
-  await radio.setMode('FM');
-  await radio.setPTT(true);
+```
+Browser (Vue 3 app)
+    ↓
+webcat-base.js (RadioController + driver registry)
+    ↓
+drivers/ (Radio-specific CAT protocol handlers)
+    ↓
+WebSerial API → USB/Serial port → Radio
+```
+
+**Data flow:**
+1. User selects driver + baud, clicks "Connect"
+2. RadioController opens WebSerial port
+3. Driver's `parseFrame()` decodes responses
+4. `update` events fire with new radio state
+5. Vue UI displays frequency, mode, controls
+6. User clicks controls → `cmd*()` functions generate commands → bytes sent to radio
+7. Each QSO logged to SQLite + MQTT broadcast to other stations (LAN sync)
+
+## Files
+
+| File | Purpose |
+|------|---------|
+| `webcat-base.js` | Core library: RadioController, driver registry |
+| `drivers/webcat-*.js` | Radio drivers (Icom IC-7300/9700, Yaesu FT-991A/857D) |
+| `index.html` | Main Vue 3 app (radio control + logging) |
+| `components/*.js` | Vue components (radio-panel, qso-form, console-panel) |
+| `server.js` | Node.js backend: Express + SQLite + MQTT broker |
+| `tests/` | Playwright test suite (session capture/replay) |
+| `tools/` | Utilities (record-session.js, mock-serial.js, validate-session.js) |
+| `ARCHITECTURE.md` | Detailed codebase guide |
+| `docs/testing.md` | Session fixture capture/replay guide |
+
+## Drivers
+
+| Driver | Radio | Protocol | Status |
+|--------|-------|----------|--------|
+| `icom.ic7300` | Icom IC-7300 | CI-V (0xFE...) | ✅ Complete |
+| `icom.ic9700` | Icom IC-9700 | CI-V | ✅ Complete |
+| `yaesu.ft991a` | Yaesu FT-991A | ASCII CAT | ✅ Complete |
+| `yaesu.ft857d` | Yaesu FT-857D | Binary CAT | ✅ Complete |
+| `hamlib.*` | ~300 radios | Hamlib rigctl bridge | 🔄 Planned |
+
+## Testing
+
+Run the Playwright test suite (validates UI + drivers without hardware):
+
+```bash
+npm test              # Run all tests
+npm run test:ui       # Interactive test UI
+npm run test:headed   # Browser visible
+```
+
+Tests use **session fixtures** (real CAT traffic captured from radios):
+```bash
+node tools/record-session.js --port COM3 --driver icom.ic7300 --out data/sessions/ic7300-full.json
+```
+
+See [docs/testing.md](docs/testing.md) for full details.
+
+## Multi-Station Sync (LAN)
+
+Each station runs its own server. QSOs and radio state sync via MQTT:
+
+```
+Station A              Station B              Station C
+[server]──MQTT───────[server]──────MQTT─────[server]
+  ↓                     ↓                       ↓
+[UI]                  [UI]                    [UI]
+  ↓                     ↓                       ↓
+[IC-7300]           [FT-991A]              [IC-9700]
+```
+
+Real-time duplicate checking and unified log view (planned in v0.3).
+
+## Browser Support
+
+- ✅ Chrome 89+
+- ✅ Edge 89+
+- ✅ Firefox 102+ (partial, WebSerial via manifest)
+- ❌ Safari (no WebSerial API yet)
+
+## Development
+
+### Add a new driver
+
+1. Create `drivers/webcat-vendor-model.js`
+2. Implement `parseFrame()`, `cmdSetFreq()`, `cmdSetMode()`, `controlsSchema()`
+3. Call `registerDriver('vendor.model', factory, { label, defaultBaud })`
+4. Test with: `npm test`
+
+Example: [drivers/webcat-icom-ic7300.js](drivers/webcat-icom-ic7300.js)
+
+### Code structure
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for:
+- RadioController lifecycle
+- Driver interface contract
+- Error handling patterns
+- Contributing guidelines
+
+## Troubleshooting
+
+**"No ports available"** → Check USB cable, restart browser
+
+**"Frequency not updating"** → Enable verbose mode (checkbox in UI), check console for parse errors
+
+**"Mode list is empty"** → Driver's `availableModes()` may not match radio; file an issue
+
+## License
+
+MIT - Use for any ham radio purpose.
+
+## References
+
+- [ARRL](https://www.arrl.org/) - Amateur Radio Relay League
+- [Hamlib](https://github.com/Hamlib/Hamlib) - Radio control library
+- [Web Serial API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API)
+- [ADIF Spec](https://adif.org/) - Amateur Data Interchange Format
   await radio.setPTT(false);
 </script>
 ```
@@ -136,14 +247,52 @@ Read helpers (optional, used for quick refresh after setting):
 
 ## Running the demo
 
-Serve the folder with any static server:
+Option A — Minimal Node server (static + MQTT over WebSocket):
 
 ```bash
-cd radio-serial-lib
+cd WebCAT
+npm install
+npm start
+```
+
+Open `http://localhost:8080/app.html` (new dynamic UI) or `demo.html`. A built-in MQTT broker is available at `ws://localhost:8080/mqtt`. The page will automatically publish state and logs if reachable.
+
+Option B — Any static server (no MQTT features):
+
+```bash
+cd WebCAT
 python3 -m http.server 8080
 ```
 
-Then open:
+Then open `http://localhost:8080/app.html` or `demo.html`.
 
-- `http://localhost:8080/demo.html`
+### Presets and On-Connect Behavior (app.html)
+
+- Choose "Load from Radio" to start polling state immediately after connect.
+- Choose "Apply Preset" to load a JSON preset of control values, apply those to the radio first, then start polling.
+- Use "Save Current as Preset" to export the current state as a JSON file.
+
+Preset JSON format:
+
+```json
+{
+  "controls": {
+    "frequencyMHz": 7.074,
+    "mode": "USB-D",
+    "txpwr": 180,
+    "agc": 2
+  }
+}
+```
+
+### MQTT in the Browser
+
+If you run the Node server, the UI includes a tiny MQTT shim (`webcat-mqtt.js`) and the MQTT.js CDN. It will:
+
+- Connect to `ws://<host>:<port>/mqtt`
+- Publish `webcat/state` on every radio update
+- Publish `webcat/logs` for UI log lines
+- Publish `webcat/events` for connect/disconnect
+
+You can subscribe from another browser tab or host using MQTT over WebSockets (e.g., via another app or a simple page using MQTT.js).
 

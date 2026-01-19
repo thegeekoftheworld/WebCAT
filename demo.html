@@ -78,17 +78,18 @@
         <label>Mode
           <select id="setMode">
             <option value="FM">FM</option>
+            <option value="FM-N">FM Narrow</option>
             <option value="AM">AM</option>
             <option value="USB">USB</option>
-            <option value="LSB">LSB</option>
-            <option value="CW">CW</option>
-            <option value="CWR">CWR</option>
-            <option value="DIG">DIG</option>
-            <option value="PKT">PKT</option>
-            <option value="FM-N">FM-N</option>
             <option value="DATA-USB">DATA-USB</option>
+            <option value="LSB">LSB</option>
             <option value="DATA-LSB">DATA-LSB</option>
-            <option value="C4FM">C4FM</option>
+            <option value="CW">CW</option>
+            <option value="CWR">CW-R</option>
+            <option value="RTTY">RTTY</option>
+            <option value="RTTY-R">RTTY-R</option>
+            <option value="DIG">Digital (DIG)</option>
+            <option value="PKT">Packet</option>
           </select>
         </label>
         <button id="applyMode">Set Mode</button>
@@ -185,6 +186,9 @@
   <script src="./drivers/webcat-icom-ic9700.js"></script>
   <script src="./drivers/webcat-yaesu-ft991a.js"></script>
   <script src="./drivers/webcat-yaesu-ft857d.js"></script>
+  <!-- Optional MQTT (broker provided by local server) -->
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <script src="./webcat-mqtt.js"></script>
 
   <script>
     const RS = window.WebCAT;
@@ -197,6 +201,7 @@
       const ts = new Date().toISOString().slice(11,23);
       logEl.textContent += `[${ts}] ${line}\n`;
       logEl.scrollTop = logEl.scrollHeight;
+      try { window.MQTTBus?.publish('webcat/logs', { ts: Date.now(), line }); } catch {}
     }
     function setStatus(s){ el('status').textContent = s; }
 
@@ -295,7 +300,7 @@
       
       // Update input fields to match radio state
       if (state.freqHz) el('setMHz').value = (state.freqHz / 1e6).toFixed(6);
-      if (state.mode) el('setMode').value = state.mode;
+      // Note: Don't sync mode dropdown to radio state - let user selection persist until explicitly changed
       if (state.txpwr?.raw!=null) el('setPwr').value = state.txpwr.raw;
       if (state.compression?.raw!=null) el('setComp').value = state.compression.raw;
       if (state.filterbw?.raw!=null) el('setFBW').value = state.filterbw.raw;
@@ -312,7 +317,8 @@
       persist();
       const ui = store.loadUI() || {};
       const driverId = ui.driverId || el('driver').value;
-      const baud = ui.baud || parseInt(el('baud').value,10);
+      // Always use UI value for baud to reflect what user selected, don't use localStorage
+      const baud = parseInt(el('baud').value,10);
       const pollMs = ui.pollMs || parseInt(el('poll').value,10);
       const meta = RS.getDriverMeta(driverId) || {};
 
@@ -320,11 +326,20 @@
       const driverOptions = {};
       if (meta.needsAddr) driverOptions.addrHex = ui.addrHex || el('addr').value;
 
-      radio = new RS.RadioController({ driverId, driverOptions, store });
+      radio = new RS.RadioController({ driverId, driverOptions, store, verbose: true });
       radio.on('log', log);
-      radio.on('update', render);
-      radio.on('connected', () => setStatus('Connected. Auto-polling...'));
-      radio.on('disconnected', () => setStatus('Disconnected.'));
+      radio.on('update', (state) => {
+        render(state);
+        try { window.MQTTBus?.publish('webcat/state', { driverId, state }); } catch {}
+      });
+      radio.on('connected', () => {
+        setStatus('Connected. Auto-polling...');
+        try { window.MQTTBus?.publish('webcat/events', { type: 'connected', driverId, ts: Date.now() }); } catch {}
+      });
+      radio.on('disconnected', () => {
+        setStatus('Disconnected.');
+        try { window.MQTTBus?.publish('webcat/events', { type: 'disconnected', driverId, ts: Date.now() }); } catch {}
+      });
       radio.on('error', (e) => setStatus('Error: '+(e?.message||e)));
 
       if (usePicker) await radio.connectWithPicker({ baudRate: baud, rememberPort: true });
