@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>WebCAT Demo</title>
+  <style>
+    body{font-family:system-ui,sans-serif;margin:16px}
+    .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+    label{display:flex;gap:8px;align-items:center}
+    input,select,button{padding:6px 10px}
+    pre{background:#111;color:#ddd;padding:12px;border-radius:8px;overflow:auto;max-height:40vh}
+    .card{border:1px solid #ddd;border-radius:10px;padding:12px}
+    .grid{display:grid;grid-template-columns:170px 1fr;gap:6px 10px}
+    .pill{display:inline-block;padding:2px 10px;border-radius:999px;font-weight:600}
+    .pill.rx{background:#e7f3ff;color:#004c99}
+    .pill.tx{background:#ffe7e7;color:#9b0000}
+    .danger{border:1px solid #c00;color:#c00;background:#fff}
+    .ok{border:1px solid #0a0;color:#0a0;background:#fff}
+    .muted{color:#666;font-size:12px}
+  </style>
+</head>
+<body>
+  <h2>WebCAT Demo</h2>
+
+  <div class="row">
+    <label>Driver
+      <select id="driver"></select>
+    </label>
+
+    <label>Baud
+      <select id="baud"></select>
+    </label>
+
+    <label id="addrWrap">Addr (hex)
+      <input id="addr" value="A2" maxlength="2" />
+    </label>
+
+    <label>Poll (ms)
+      <input id="poll" type="number" value="200" min="20" step="10" />
+    </label>
+
+    <button id="connect">Connect (Picker)</button>
+    <button id="autoconnect" class="ok">Auto-Connect</button>
+    <button id="disconnect" disabled>Disconnect</button>
+    <button id="stop" disabled>Stop Poll</button>
+  </div>
+
+  <div class="row">
+    <div class="card" style="min-width:460px;">
+      <div class="grid">
+        <div><b>PTT</b></div><div id="ptt">—</div>
+        <div><b>Freq</b></div><div id="freq">—</div>
+        <div><b>Mode</b></div><div id="mode">—</div>
+        <div><b>S-meter</b></div><div id="smeter">—</div>
+        <div><b>SWR</b></div><div id="swr">—</div>
+        <div><b>PO</b></div><div id="po">—</div>
+        <div><b>Vd</b></div><div id="vd">—</div>
+        <div><b>Id</b></div><div id="id">—</div>
+      </div>
+
+      <div class="row" style="margin-top:10px;">
+        <label>Set MHz <input id="setMHz" type="number" step="0.000001" value="146.520" style="width:120px" /></label>
+        <button id="setFreq">Set Freq</button>
+
+        <label>Mode
+          <select id="setMode">
+            <option value="FM">FM</option>
+            <option value="AM">AM</option>
+            <option value="USB">USB</option>
+            <option value="LSB">LSB</option>
+            <option value="CW">CW</option>
+            <option value="CWR">CWR</option>
+            <option value="DIG">DIG</option>
+            <option value="PKT">PKT</option>
+            <option value="FM-N">FM-N</option>
+            <option value="DATA-USB">DATA-USB</option>
+            <option value="DATA-LSB">DATA-LSB</option>
+            <option value="C4FM">C4FM</option>
+          </select>
+        </label>
+        <button id="applyMode">Set Mode</button>
+
+        <button id="pttOn" class="danger">PTT ON</button>
+        <button id="pttOff">PTT OFF</button>
+      </div>
+
+      <div class="muted" id="status">Not connected.</div>
+    </div>
+
+    <div class="card" style="flex:1;min-width:360px;">
+      <div class="row" style="margin:0 0 6px 0;">
+        <b>Log</b>
+        <button id="clear" style="margin-left:auto;">Clear</button>
+      </div>
+      <pre id="log"></pre>
+    </div>
+  </div>
+
+  <!-- Base library -->
+  <script src="./webcat-base.js"></script>
+  <!-- Drivers you want -->
+  <script src="./drivers/webcat-icom-ic9700.js"></script>
+  <script src="./drivers/webcat-yaesu-ft991a.js"></script>
+  <script src="./drivers/webcat-yaesu-ft857d.js"></script>
+
+  <script>
+    const RS = window.WebCAT;
+    const store = new RS.SettingsStore('radio_serial_demo');
+
+    const el = (id) => document.getElementById(id);
+    const logEl = el('log');
+
+    function log(line){
+      const ts = new Date().toISOString().slice(11,23);
+      logEl.textContent += `[${ts}] ${line}\n`;
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+    function setStatus(s){ el('status').textContent = s; }
+
+    // Populate driver dropdown
+    const drivers = RS.listDrivers();
+    for (const d of drivers) {
+      const opt = document.createElement('option');
+      opt.value = d.id;
+      opt.textContent = d.label || d.id;
+      el('driver').appendChild(opt);
+    }
+
+    // Restore UI
+    const saved = store.loadUI() || {};
+    if (saved.driverId) el('driver').value = saved.driverId;
+    if (saved.pollMs) el('poll').value = saved.pollMs;
+    if (saved.addrHex) el('addr').value = saved.addrHex;
+
+    function refreshBaudAndAddr() {
+      const meta = RS.getDriverMeta(el('driver').value) || {};
+      const allowed = meta.allowedBauds || RS.COMMON_BAUDS;
+      const def = meta.defaultBaud || allowed[0];
+
+      // baud dropdown
+      el('baud').innerHTML = '';
+      for (const b of allowed) {
+        const o = document.createElement('option');
+        o.value = String(b);
+        o.textContent = String(b);
+        el('baud').appendChild(o);
+      }
+      el('baud').value = String(saved.baud || def);
+
+      // addr
+      if (meta.needsAddr) {
+        el('addrWrap').style.display = '';
+      } else {
+        el('addrWrap').style.display = 'none';
+      }
+    }
+    refreshBaudAndAddr();
+
+    el('driver').addEventListener('change', () => {
+      refreshBaudAndAddr();
+      persist();
+    });
+
+    ['baud','poll','addr'].forEach(id => el(id).addEventListener('change', persist));
+
+    function persist(){
+      store.saveUI({
+        driverId: el('driver').value,
+        baud: parseInt(el('baud').value,10),
+        pollMs: parseInt(el('poll').value,10),
+        addrHex: el('addr').value.toUpperCase().replace(/^0X/,'').slice(0,2)
+      });
+    }
+
+    let radio = null;
+
+    function render(state){
+      el('ptt').innerHTML = (state.ptt==null) ? '—' : (state.ptt ? '<span class="pill tx">TX</span>' : '<span class="pill rx">RX</span>');
+      el('freq').textContent = state.freqHz ? (state.freqHz/1e6).toFixed(6)+' MHz' : '—';
+      el('mode').textContent = state.mode || '—';
+      el('smeter').textContent = (state.smeterRaw!=null) ? `${state.smeterRaw}/255` : '—';
+      el('swr').textContent = (state.swr && state.swr.swr!=null) ? state.swr.swr.toFixed(2) : (state.extras?.hiSWR ? 'HI SWR' : '—');
+      el('po').textContent = state.po?.watts!=null ? Math.round(state.po.watts)+' W' : (state.po?.raw!=null ? state.po.raw+'/255' : '—');
+      el('vd').textContent = state.vd?.volts!=null ? state.vd.volts.toFixed(2)+' V' : (state.vd?.raw!=null ? state.vd.raw+'/255' : '—');
+      el('id').textContent = state.id?.amps!=null ? state.id.amps.toFixed(2)+' A' : (state.id?.raw!=null ? state.id.raw+'/255' : '—');
+    }
+
+    async function connect(usePicker){
+      persist();
+      const ui = store.loadUI() || {};
+      const driverId = ui.driverId || el('driver').value;
+      const baud = ui.baud || parseInt(el('baud').value,10);
+      const pollMs = ui.pollMs || parseInt(el('poll').value,10);
+      const meta = RS.getDriverMeta(driverId) || {};
+
+      // driver options (addr only for Icom)
+      const driverOptions = {};
+      if (meta.needsAddr) driverOptions.addrHex = ui.addrHex || el('addr').value;
+
+      radio = new RS.RadioController({ driverId, driverOptions, store });
+      radio.on('log', log);
+      radio.on('update', render);
+      radio.on('connected', () => setStatus('Connected. Auto-polling...'));
+      radio.on('disconnected', () => setStatus('Disconnected.'));
+      radio.on('error', (e) => setStatus('Error: '+(e?.message||e)));
+
+      if (usePicker) await radio.connectWithPicker({ baudRate: baud, rememberPort: true });
+      else await radio.connectRemembered({ baudRate: baud });
+
+      // Auto poll
+      radio.startPolling(pollMs);
+
+      el('connect').disabled = true;
+      el('autoconnect').disabled = true;
+      el('disconnect').disabled = false;
+      el('stop').disabled = false;
+    }
+
+    el('connect').addEventListener('click', () => connect(true).catch(e=>alert(e.message||e)));
+    el('autoconnect').addEventListener('click', () => connect(false).catch(e=>alert(e.message||e)));
+
+    el('disconnect').addEventListener('click', async () => {
+      if (!radio) return;
+      await radio.disconnect();
+      radio = null;
+      el('connect').disabled = false;
+      el('autoconnect').disabled = false;
+      el('disconnect').disabled = true;
+      el('stop').disabled = true;
+    });
+
+    el('stop').addEventListener('click', () => {
+      if (!radio) return;
+      radio.stopPolling();
+      setStatus('Polling stopped.');
+      el('stop').disabled = true;
+    });
+
+    el('setFreq').addEventListener('click', async () => {
+      if (!radio) return alert('Not connected');
+      await radio.setFrequencyMHz(el('setMHz').value);
+    });
+
+    el('applyMode').addEventListener('click', async () => {
+      if (!radio) return alert('Not connected');
+      await radio.setMode(el('setMode').value);
+    });
+
+    el('pttOn').addEventListener('click', async () => {
+      if (!radio) return alert('Not connected');
+      await radio.setPTT(true);
+    });
+
+    el('pttOff').addEventListener('click', async () => {
+      if (!radio) return alert('Not connected');
+      await radio.setPTT(false);
+    });
+
+    el('clear').addEventListener('click', () => logEl.textContent = '');
+  </script>
+</body>
+</html>
