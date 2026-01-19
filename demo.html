@@ -57,6 +57,18 @@
         <div><b>PO</b></div><div id="po">—</div>
         <div><b>Vd</b></div><div id="vd">—</div>
         <div><b>Id</b></div><div id="id">—</div>
+        <div><b>TX Power</b></div><div id="txpwr">—</div>
+        <div><b>Compression</b></div><div id="comp">—</div>
+        <div><b>Filter BW</b></div><div id="fbw">—</div>
+        <div><b>Noise Blanker</b></div><div id="nb">—</div>
+        <div><b>Auto Notch</b></div><div id="notch">—</div>
+        <div><b>Preamp</b></div><div id="preamp">—</div>
+        <div><b>AGC</b></div><div id="agc">—</div>
+        <div><b>Monitor</b></div><div id="mon">—</div>
+        <div><b>VFO Lock</b></div><div id="lock">—</div>
+        <div><b>Tuning Step</b></div><div id="tstep">—</div>
+        <div><b>ATU Status</b></div><div id="atu">—</div>
+        <div><b>Meter Type</b></div><div id="mtype">—</div>
       </div>
 
       <div class="row" style="margin-top:10px;">
@@ -85,6 +97,75 @@
         <button id="pttOff">PTT OFF</button>
       </div>
 
+      <div class="row" style="margin-top:10px;">
+        <label>TX Power <input id="setPwr" type="range" min="0" max="255" value="100" style="width:100px" /></label>
+        <button id="applyPwr">Apply</button>
+
+        <label>Compression <input id="setComp" type="range" min="0" max="255" value="0" style="width:100px" /></label>
+        <button id="applyComp">Apply</button>
+
+        <label>Filter BW <input id="setFBW" type="range" min="0" max="255" value="128" style="width:100px" /></label>
+        <button id="applyFBW">Apply</button>
+      </div>
+
+      <div class="row" style="margin-top:10px;">
+        <label>Noise Blanker <input id="setNB" type="range" min="0" max="255" value="0" style="width:100px" /></label>
+        <button id="applyNB">Apply</button>
+
+        <label>Preamp
+          <select id="setPreamp">
+            <option value="0">Off</option>
+            <option value="1">+10 dB</option>
+            <option value="2">-10 dB</option>
+            <option value="3">-20 dB</option>
+          </select>
+        </label>
+        <button id="applyPreamp">Apply</button>
+
+        <label>AGC
+          <select id="setAGC">
+            <option value="0">Fast</option>
+            <option value="1">Mid</option>
+            <option value="2">Slow</option>
+          </select>
+        </label>
+        <button id="applyAGC">Apply</button>
+      </div>
+
+      <div class="row" style="margin-top:10px;">
+        <label>Auto Notch <input id="setAutoNotch" type="checkbox" /></label>
+        <button id="applyAutoNotch">Apply</button>
+
+        <label>Monitor <input id="setMon" type="range" min="0" max="255" value="0" style="width:100px" /></label>
+        <button id="applyMon">Apply</button>
+
+        <label>VFO Lock <input id="setLock" type="checkbox" /></label>
+        <button id="applyLock">Apply</button>
+      </div>
+
+      <div class="row" style="margin-top:10px;">
+        <label>Tuning Step
+          <select id="setTstep">
+            <option value="0">1 Hz</option>
+            <option value="1">10 Hz</option>
+            <option value="2">100 Hz</option>
+            <option value="3">1 kHz</option>
+          </select>
+        </label>
+        <button id="applyTstep">Apply</button>
+
+        <label>Meter Type
+          <select id="setMType">
+            <option value="0">S-meter</option>
+            <option value="1">SWR</option>
+            <option value="2">Power Out</option>
+          </select>
+        </label>
+        <button id="applyMType">Apply</button>
+
+        <button id="atuTune" class="ok">ATU Tune</button>
+      </div>
+
       <div class="muted" id="status">Not connected.</div>
     </div>
 
@@ -100,6 +181,7 @@
   <!-- Base library -->
   <script src="./webcat-base.js"></script>
   <!-- Drivers you want -->
+  <script src="./drivers/webcat-icom-ic7300.js"></script>
   <script src="./drivers/webcat-icom-ic9700.js"></script>
   <script src="./drivers/webcat-yaesu-ft991a.js"></script>
   <script src="./drivers/webcat-yaesu-ft857d.js"></script>
@@ -146,7 +228,8 @@
         o.textContent = String(b);
         el('baud').appendChild(o);
       }
-      el('baud').value = String(saved.baud || def);
+      // Use driver's defaultBaud, not saved value (prevents wrong baud from previous driver)
+      el('baud').value = String(def);
 
       // addr
       if (meta.needsAddr) {
@@ -184,6 +267,45 @@
       el('po').textContent = state.po?.watts!=null ? Math.round(state.po.watts)+' W' : (state.po?.raw!=null ? state.po.raw+'/255' : '—');
       el('vd').textContent = state.vd?.volts!=null ? state.vd.volts.toFixed(2)+' V' : (state.vd?.raw!=null ? state.vd.raw+'/255' : '—');
       el('id').textContent = state.id?.amps!=null ? state.id.amps.toFixed(2)+' A' : (state.id?.raw!=null ? state.id.raw+'/255' : '—');
+      
+      // New feature displays
+      el('txpwr').textContent = (state.txpwr?.raw!=null) ? `${state.txpwr.raw}/255` : '—';
+      el('comp').textContent = (state.compression?.raw!=null) ? `${state.compression.raw}/255` : '—';
+      el('fbw').textContent = (state.filterbw?.raw!=null) ? `${state.filterbw.raw}/255` : '—';
+      el('nb').textContent = (state.nb?.raw!=null) ? `${state.nb.raw}/255` : '—';
+      el('notch').textContent = (state.autonotch?.raw!=null) ? (state.autonotch.raw ? 'ON' : 'OFF') : '—';
+      
+      const preampMap = { 0: 'Off', 1: '+10dB', 2: '-10dB', 3: '-20dB' };
+      el('preamp').textContent = (state.preamp?.raw!=null) ? preampMap[state.preamp.raw] || state.preamp.raw : '—';
+      
+      const agcMap = { 0: 'Fast', 1: 'Mid', 2: 'Slow' };
+      el('agc').textContent = (state.agc?.raw!=null) ? agcMap[state.agc.raw] || state.agc.raw : '—';
+      
+      el('mon').textContent = (state.monitor?.raw!=null) ? `${state.monitor.raw}/255` : '—';
+      el('lock').textContent = (state.vfolock?.on!=null) ? (state.vfolock.on ? 'LOCKED' : 'Unlocked') : '—';
+      
+      const stepMap = { 0: '1Hz', 1: '10Hz', 2: '100Hz', 3: '1kHz' };
+      el('tstep').textContent = (state.tuningstep?.step!=null) ? stepMap[state.tuningstep.step] || state.tuningstep.step : '—';
+      
+      const atuMap = { 0: 'Idle', 1: 'Tuning', 2: 'Tuned', 3: 'Memory' };
+      el('atu').textContent = (state.atu?.status!=null) ? atuMap[state.atu.status] || state.atu.status : '—';
+      
+      const mtypeMap = { 0: 'S-meter', 1: 'SWR', 2: 'Power' };
+      el('mtype').textContent = (state.metertype?.meterType!=null) ? mtypeMap[state.metertype.meterType] : '—';
+      
+      // Update input fields to match radio state
+      if (state.freqHz) el('setMHz').value = (state.freqHz / 1e6).toFixed(6);
+      if (state.mode) el('setMode').value = state.mode;
+      if (state.txpwr?.raw!=null) el('setPwr').value = state.txpwr.raw;
+      if (state.compression?.raw!=null) el('setComp').value = state.compression.raw;
+      if (state.filterbw?.raw!=null) el('setFBW').value = state.filterbw.raw;
+      if (state.nb?.raw!=null) el('setNB').value = state.nb.raw;
+      if (state.preamp?.raw!=null) el('setPreamp').value = state.preamp.raw;
+      if (state.agc?.raw!=null) el('setAGC').value = state.agc.raw;
+      if (state.monitor?.raw!=null) el('setMon').value = state.monitor.raw;
+      if (state.vfolock?.on!=null) el('setLock').checked = state.vfolock.on;
+      if (state.tuningstep?.step!=null) el('setTstep').value = state.tuningstep.step;
+      if (state.metertype?.meterType!=null) el('setMType').value = state.metertype.meterType;
     }
 
     async function connect(usePicker){
@@ -210,6 +332,9 @@
 
       // Auto poll
       radio.startPolling(pollMs);
+
+      // Display initial state immediately
+      render(radio.state);
 
       el('connect').disabled = true;
       el('autoconnect').disabled = true;
@@ -255,6 +380,78 @@
     el('pttOff').addEventListener('click', async () => {
       if (!radio) return alert('Not connected');
       await radio.setPTT(false);
+    });
+
+    // New feature controls
+    el('applyPwr').addEventListener('click', async () => {
+      if (!radio) return alert('Not connected');
+      const val = parseInt(el('setPwr').value, 10);
+      await radio.sendCommand(radio.driver.cmdSetTXPower(val));
+    });
+
+    el('applyComp').addEventListener('click', async () => {
+      if (!radio) return alert('Not connected');
+      const val = parseInt(el('setComp').value, 10);
+      await radio.sendCommand(radio.driver.cmdSetCompression(val));
+    });
+
+    el('applyFBW').addEventListener('click', async () => {
+      if (!radio) return alert('Not connected');
+      const val = parseInt(el('setFBW').value, 10);
+      await radio.sendCommand(radio.driver.cmdSetFilterBW(val));
+    });
+
+    el('applyNB').addEventListener('click', async () => {
+      if (!radio) return alert('Not connected');
+      const val = parseInt(el('setNB').value, 10);
+      await radio.sendCommand(radio.driver.cmdSetNoiseBlanker(val));
+    });
+
+    el('applyAutoNotch').addEventListener('click', async () => {
+      if (!radio) return alert('Not connected');
+      const on = el('setAutoNotch').checked;
+      await radio.sendCommand(radio.driver.cmdSetAutoNotch(on));
+    });
+
+    el('applyPreamp').addEventListener('click', async () => {
+      if (!radio) return alert('Not connected');
+      const level = parseInt(el('setPreamp').value, 10);
+      await radio.sendCommand(radio.driver.cmdSetPreamp(level));
+    });
+
+    el('applyAGC').addEventListener('click', async () => {
+      if (!radio) return alert('Not connected');
+      const mode = parseInt(el('setAGC').value, 10);
+      await radio.sendCommand(radio.driver.cmdSetAGC(mode));
+    });
+
+    el('applyMon').addEventListener('click', async () => {
+      if (!radio) return alert('Not connected');
+      const val = parseInt(el('setMon').value, 10);
+      await radio.sendCommand(radio.driver.cmdSetMonitor(val));
+    });
+
+    el('applyLock').addEventListener('click', async () => {
+      if (!radio) return alert('Not connected');
+      const on = el('setLock').checked;
+      await radio.sendCommand(radio.driver.cmdSetVFOLock(on));
+    });
+
+    el('applyTstep').addEventListener('click', async () => {
+      if (!radio) return alert('Not connected');
+      const step = parseInt(el('setTstep').value, 10);
+      await radio.sendCommand(radio.driver.cmdSetTuningStep(step));
+    });
+
+    el('applyMType').addEventListener('click', async () => {
+      if (!radio) return alert('Not connected');
+      const type = parseInt(el('setMType').value, 10);
+      await radio.sendCommand(radio.driver.cmdSetMeterType(type));
+    });
+
+    el('atuTune').addEventListener('click', async () => {
+      if (!radio) return alert('Not connected');
+      await radio.sendCommand(radio.driver.cmdSetATUTune());
     });
 
     el('clear').addEventListener('click', () => logEl.textContent = '');
