@@ -149,6 +149,26 @@
         rfpwr: null,
         vd: null,
         id: null,
+        // New feature states
+        txpwr: null,
+        compression: null,
+        filterbw: null,
+        nb: null,
+        autonotch: null,
+        manualnotch: null,
+        preamp: null,
+        agc: null,
+        monitor: null,
+        vfolock: null,
+        tuningstep: null,
+        splittxfreq: null,
+        atu: null,
+        metertype: null,
+        rit: null,
+        xit: null,
+        af: null,
+        rf: null,
+        sql: null,
         extras: {},
       };
 
@@ -294,6 +314,25 @@
         rfpwr: null,
         vd: null,
         id: null,
+        txpwr: null,
+        compression: null,
+        filterbw: null,
+        nb: null,
+        autonotch: null,
+        manualnotch: null,
+        preamp: null,
+        agc: null,
+        monitor: null,
+        vfolock: null,
+        tuningstep: null,
+        splittxfreq: null,
+        atu: null,
+        metertype: null,
+        rit: null,
+        xit: null,
+        af: null,
+        rf: null,
+        sql: null,
         extras: {},
       };
       this._emit('disconnected', null);
@@ -367,6 +406,27 @@
 
       if (ev.type === 'vd') this.state.vd = ev;
       if (ev.type === 'id') this.state.id = ev;
+
+      // New feature event mappings
+      if (ev.type === 'txpwr') this.state.txpwr = ev;
+      if (ev.type === 'compression') this.state.compression = ev;
+      if (ev.type === 'filterbw') this.state.filterbw = ev;
+      if (ev.type === 'nb') this.state.nb = ev;
+      if (ev.type === 'autonotch') this.state.autonotch = ev;
+      if (ev.type === 'manualnotch') this.state.manualnotch = ev;
+      if (ev.type === 'preamp') this.state.preamp = ev;
+      if (ev.type === 'agc') this.state.agc = ev;
+      if (ev.type === 'monitor') this.state.monitor = ev;
+      if (ev.type === 'vfolock') this.state.vfolock = ev;
+      if (ev.type === 'tuningstep') this.state.tuningstep = ev;
+      if (ev.type === 'splittxfreq') this.state.splittxfreq = ev;
+      if (ev.type === 'atu') this.state.atu = ev;
+      if (ev.type === 'metertype') this.state.metertype = ev;
+      if (ev.type === 'rit') this.state.rit = ev;
+      if (ev.type === 'xit') this.state.xit = ev;
+      if (ev.type === 'af') this.state.af = ev;
+      if (ev.type === 'rf') this.state.rf = ev;
+      if (ev.type === 'sql') this.state.sql = ev;
 
       if (ev.type === 'extra') {
         this.state.extras = { ...this.state.extras, ...(ev.data || {}) };
