@@ -445,6 +445,12 @@
       if (ev.type === 'rf') this.state.rf = ev;
       if (ev.type === 'sql') this.state.sql = ev;
 
+      // Waterfall/Spectrum data
+      if (ev.type === 'waterfall') {
+        this.state.waterfall = ev.raw;
+        this._emit('waterfall', ev.raw);  // Emit separate event for real-time updates
+      }
+
       if (ev.type === 'extra') {
         this.state.extras = { ...this.state.extras, ...(ev.data || {}) };
       }

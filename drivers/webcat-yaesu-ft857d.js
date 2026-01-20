@@ -6,6 +6,30 @@
 
   const { hex2 } = WebCAT.utils;
 
+  // FT-857D supports HF bands (160m-10m) + VHF/UHF (6m, 2m, 70cm)
+  const BANDS = [
+    { name: '160m', min: 1800000, max: 2000000 },
+    { name: '80m', min: 3500000, max: 4000000 },
+    { name: '60m', min: 5330000, max: 5403500 },
+    { name: '40m', min: 7000000, max: 7300000 },
+    { name: '30m', min: 10100000, max: 10150000 },
+    { name: '20m', min: 14000000, max: 14350000 },
+    { name: '17m', min: 18068000, max: 18168000 },
+    { name: '15m', min: 21000000, max: 21450000 },
+    { name: '12m', min: 24890000, max: 24990000 },
+    { name: '10m', min: 28000000, max: 29700000 },
+    { name: '6m', min: 50000000, max: 54000000 },
+    { name: '2m', min: 144000000, max: 148000000 },
+    { name: '70cm', min: 420000000, max: 450000000 }
+  ];
+
+  function getBandFromFreq(hz) {
+    for (const band of BANDS) {
+      if (hz >= band.min && hz <= band.max) return band.name;
+    }
+    return '?';
+  }
+
   class YaesuFT857DDriver {
     constructor({ interCommandDelayMs = 25 } = {}) {
       this.interCommandDelayMs = interCommandDelayMs;
@@ -146,6 +170,48 @@
 
     formatTx(u8) { return `TX_857D: ${WebCAT.utils.bytesToHex(u8)}`; }
     formatRx(u8) { return `RX_857D: ${WebCAT.utils.bytesToHex(u8)}`; }
+
+    // === UI SCHEMA ===
+    availableModes() {
+      // FT-857D 5-byte CAT modes
+      return ['LSB', 'USB', 'CW', 'CWR', 'AM', 'WFM', 'FM', 'NFM', 'DIG', 'PKT'];
+    }
+
+    controlsSchema() {
+      const readPath = (obj, path) => {
+        const parts = path.split('.');
+        let cur = obj; for (const p of parts) { if (!cur) return undefined; cur = cur[p]; }
+        return cur;
+      };
+      return [
+        // === PRIMARY CONTROLS ===
+        {
+          id: 'band', label: 'Band', kind: 'button-grid', group: 'primary', cols: 4,
+          buttons: BANDS.map(b => ({ value: b.name, label: b.name })),
+          read: (state) => state.freqHz ? getBandFromFreq(state.freqHz) : undefined,
+          apply: async (radio, bandName) => {
+            const band = BANDS.find(b => b.name === bandName);
+            if (band) {
+              const freq = (band.min + band.max) / 2;
+              await radio.setFrequencyHz(freq);
+            }
+          }
+        },
+        {
+          id: 'mode', label: 'Mode', kind: 'button-grid', group: 'primary', cols: 3,
+          buttons: this.availableModes().map(m => ({ value: m, label: m })),
+          read: (state) => state.mode,
+          apply: async (radio, v) => radio.setMode(String(v))
+        },
+
+        // === TRANSMIT CONTROLS ===
+        {
+          id: 'ptt', label: 'PTT', kind: 'toggle', group: 'transmit',
+          read: (state) => !!state.ptt,
+          apply: async (radio, on) => radio.setPTT(!!on)
+        }
+      ];
+    }
   }
 
   WebCAT.registerDriver(

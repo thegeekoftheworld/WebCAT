@@ -12,6 +12,20 @@
     return { lo, hi };
   }
 
+  // Ham radio bands (USA) - IC-9700 supports VHF/UHF primarily
+  const BANDS = [
+    { name: '2m', min: 144000000, max: 148000000 },
+    { name: '70cm', min: 420000000, max: 450000000 },
+    { name: '23cm', min: 1240000000, max: 1325000000 }
+  ];
+
+  function getBandFromFreq(hz) {
+    for (const band of BANDS) {
+      if (hz >= band.min && hz <= band.max) return band.name;
+    }
+    return '?';
+  }
+
   class IcomCivTransport {
     constructor({ radioAddr = 0xA2, ctrlAddr = 0xE0 }) {
       this.radioAddr = radioAddr;
@@ -46,6 +60,12 @@
     cmdReadRfPwrSetting(){return this.transport.buildFrame(Uint8Array.from([0x14, 0x0A])); }
     cmdReadVd()         { return this.transport.buildFrame(Uint8Array.from([0x15, 0x15])); }
     cmdReadId()         { return this.transport.buildFrame(Uint8Array.from([0x15, 0x16])); }
+    // Additional audio controls
+    cmdReadAF()         { return this.transport.buildFrame(Uint8Array.from([0x14, 0x01])); }
+    cmdReadRF()         { return this.transport.buildFrame(Uint8Array.from([0x14, 0x02])); }
+    cmdReadSQL()        { return this.transport.buildFrame(Uint8Array.from([0x14, 0x03])); }
+    cmdReadCompression() { return this.transport.buildFrame(Uint8Array.from([0x14, 0x0E])); }
+    cmdReadMonitor()    { return this.transport.buildFrame(Uint8Array.from([0x14, 0x28])); }
 
     // Controls
     cmdSetFreqHz(hz) {
@@ -77,6 +97,36 @@
 
     cmdSetPTT(on) {
       return this.transport.buildFrame(Uint8Array.from([0x1C, 0x00, on ? 0x01 : 0x00]));
+    }
+
+    cmdSetAF(raw) {
+      const val = Math.round(clamp(raw, 0, 255)) & 0xFF;
+      return this.transport.buildFrame(Uint8Array.from([0x14, 0x01, val]));
+    }
+
+    cmdSetRF(raw) {
+      const val = Math.round(clamp(raw, 0, 255)) & 0xFF;
+      return this.transport.buildFrame(Uint8Array.from([0x14, 0x02, val]));
+    }
+
+    cmdSetSQL(raw) {
+      const val = Math.round(clamp(raw, 0, 255)) & 0xFF;
+      return this.transport.buildFrame(Uint8Array.from([0x14, 0x03, val]));
+    }
+
+    cmdSetTXPower(raw) {
+      const val = Math.round(clamp(raw, 0, 255)) & 0xFF;
+      return this.transport.buildFrame(Uint8Array.from([0x14, 0x0A, val]));
+    }
+
+    cmdSetCompression(raw) {
+      const val = Math.round(clamp(raw, 0, 255)) & 0xFF;
+      return this.transport.buildFrame(Uint8Array.from([0x14, 0x0E, val]));
+    }
+
+    cmdSetMonitor(raw) {
+      const val = Math.round(clamp(raw, 0, 255)) & 0xFF;
+      return this.transport.buildFrame(Uint8Array.from([0x14, 0x28, val]));
     }
 
     pollSequence() {
@@ -207,6 +257,80 @@
 
     formatTx(u8) { return `TX_CIV: ${WebCAT.utils.bytesToHex(u8)}`; }
     formatRx(u8) { return `RX_CIV: ${WebCAT.utils.bytesToHex(u8)}`; }
+
+    // === UI SCHEMA ===
+    availableModes() {
+      // IC-9700 supports: LSB, USB, AM, CW, RTTY, FM, CW-R, RTTY-R, DV, DD
+      return ['LSB', 'USB', 'AM', 'CW', 'RTTY', 'FM', 'CW-R', 'RTTY-R', 'DV', 'DD'];
+    }
+
+    controlsSchema() {
+      const readPath = (obj, path) => {
+        const parts = path.split('.');
+        let cur = obj; for (const p of parts) { if (!cur) return undefined; cur = cur[p]; }
+        return cur;
+      };
+      return [
+        // === PRIMARY CONTROLS ===
+        {
+          id: 'band', label: 'Band', kind: 'button-grid', group: 'primary', cols: 3,
+          buttons: BANDS.map(b => ({ value: b.name, label: b.name })),
+          read: (state) => state.freqHz ? getBandFromFreq(state.freqHz) : undefined,
+          apply: async (radio, bandName) => {
+            const band = BANDS.find(b => b.name === bandName);
+            if (band) {
+              const freq = (band.min + band.max) / 2;
+              await radio.setFrequencyHz(freq);
+            }
+          }
+        },
+        {
+          id: 'mode', label: 'Mode', kind: 'button-grid', group: 'primary', cols: 3,
+          buttons: this.availableModes().map(m => ({ value: m, label: m })),
+          read: (state) => state.mode,
+          apply: async (radio, v) => radio.setMode(String(v))
+        },
+
+        // === AUDIO CONTROLS ===
+        {
+          id: 'af', label: 'AF Gain', kind: 'range', group: 'audio', min: 0, max: 255, step: 1,
+          read: (state) => readPath(state, 'af.raw'),
+          apply: async (radio, v) => radio.sendCommand(radio.driver.cmdSetAF(Number(v)))
+        },
+        {
+          id: 'rf', label: 'RF Gain', kind: 'range', group: 'audio', min: 0, max: 255, step: 1,
+          read: (state) => readPath(state, 'rf.raw'),
+          apply: async (radio, v) => radio.sendCommand(radio.driver.cmdSetRF(Number(v)))
+        },
+        {
+          id: 'sql', label: 'Squelch', kind: 'range', group: 'audio', min: 0, max: 255, step: 1,
+          read: (state) => readPath(state, 'sql.raw'),
+          apply: async (radio, v) => radio.sendCommand(radio.driver.cmdSetSQL(Number(v)))
+        },
+
+        // === TRANSMIT CONTROLS ===
+        {
+          id: 'ptt', label: 'PTT', kind: 'toggle', group: 'transmit',
+          read: (state) => !!state.ptt,
+          apply: async (radio, on) => radio.setPTT(!!on)
+        },
+        {
+          id: 'txpwr', label: 'TX Power', kind: 'range', group: 'transmit', min: 0, max: 255, step: 1,
+          read: (state) => readPath(state, 'txpwr.raw'),
+          apply: async (radio, v) => radio.sendCommand(radio.driver.cmdSetTXPower(Number(v)))
+        },
+        {
+          id: 'compression', label: 'Speech Comp', kind: 'range', group: 'transmit', min: 0, max: 255, step: 1,
+          read: (state) => readPath(state, 'compression.raw'),
+          apply: async (radio, v) => radio.sendCommand(radio.driver.cmdSetCompression(Number(v)))
+        },
+        {
+          id: 'monitor', label: 'Monitor', kind: 'range', group: 'transmit', min: 0, max: 255, step: 1,
+          read: (state) => readPath(state, 'monitor.raw'),
+          apply: async (radio, v) => radio.sendCommand(radio.driver.cmdSetMonitor(Number(v)))
+        }
+      ];
+    }
   }
 
   WebCAT.registerDriver(

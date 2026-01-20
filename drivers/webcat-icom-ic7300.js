@@ -28,6 +28,30 @@
     }
   }
 
+  // Ham radio bands (USA)
+  const BANDS = [
+    { name: '160m', min: 1800000, max: 2000000 },
+    { name: '80m', min: 3500000, max: 4000000 },
+    { name: '60m', min: 5330500, max: 5406500 },
+    { name: '40m', min: 7000000, max: 7300000 },
+    { name: '30m', min: 10100000, max: 10150000 },
+    { name: '20m', min: 14000000, max: 14350000 },
+    { name: '17m', min: 18068000, max: 18168000 },
+    { name: '15m', min: 21000000, max: 21450000 },
+    { name: '12m', min: 24890000, max: 24990000 },
+    { name: '10m', min: 28000000, max: 29700000 },
+    { name: '6m', min: 50000000, max: 54000000 },
+    { name: '2m', min: 144000000, max: 148000000 },
+    { name: '70cm', min: 420000000, max: 450000000 }
+  ];
+
+  function getBandFromFreq(hz) {
+    for (const band of BANDS) {
+      if (hz >= band.min && hz <= band.max) return band.name;
+    }
+    return '?';
+  }
+
   class IcomIC7300Driver {
     constructor({ addrHex = '94' } = {}) {
       this.transport = new IcomCivTransport({ radioAddr: parseHexByte(addrHex), ctrlAddr: 0xE0 });
@@ -51,6 +75,7 @@
     cmdReadSQL()        { return this.transport.buildFrame(Uint8Array.from([0x14, 0x03])); }
     cmdReadRIT()        { return this.transport.buildFrame(Uint8Array.from([0x14, 0x07])); }
     cmdReadXIT()        { return this.transport.buildFrame(Uint8Array.from([0x14, 0x08])); }
+    cmdReadWaterfall()  { return this.transport.buildFrame(Uint8Array.from([0x27, 0x00])); }
     // Additional feature reads
     cmdReadCompression() { return this.transport.buildFrame(Uint8Array.from([0x14, 0x0E])); }
     cmdReadTXPower()    { return this.transport.buildFrame(Uint8Array.from([0x14, 0x0A])); }
@@ -430,6 +455,18 @@
         return [{ type: 'metertype', meterType }];
       }
 
+      // Waterfall/Scope data (0x27)
+      if (cmd === 0x27 && rest.length >= 1) {
+        if (rest[0] === 0x00) {
+          // Waterfall data: 0x27 0x00 [data_array]
+          // IC-7300 returns 101 bytes of spectrum data (0-100 dB range)
+          const waterfallData = rest.slice(1);
+          if (waterfallData.length > 0) {
+            return [{ type: 'waterfall', raw: waterfallData }];
+          }
+        }
+      }
+
       return [];
     }
 
@@ -455,14 +492,20 @@
       return [
         // === PRIMARY CONTROLS ===
         {
-          id: 'frequencyMHz', label: 'Frequency (MHz)', kind: 'number', group: 'primary',
-          step: 0.000001, toFixed: 6,
-          read: (state) => state.freqHz ? (state.freqHz/1e6) : undefined,
-          apply: async (radio, v) => radio.setFrequencyMHz(Number(v))
+          id: 'band', label: 'Band', kind: 'button-grid', group: 'primary', cols: 4,
+          buttons: BANDS.map(b => ({ value: b.name, label: b.name })),
+          read: (state) => state.freqHz ? getBandFromFreq(state.freqHz) : undefined,
+          apply: async (radio, bandName) => {
+            const band = BANDS.find(b => b.name === bandName);
+            if (band) {
+              const freq = (band.min + band.max) / 2;
+              await radio.setFrequencyHz(freq);
+            }
+          }
         },
         {
-          id: 'mode', label: 'Mode', kind: 'select', group: 'primary',
-          options: this.availableModes().map(m => ({ value: m, label: m })),
+          id: 'mode', label: 'Mode', kind: 'button-grid', group: 'primary', cols: 3,
+          buttons: this.availableModes().map(m => ({ value: m, label: m })),
           read: (state) => {
             const base = state.mode;
             const d = !!(state.extras && state.extras.datamode);
@@ -530,8 +573,8 @@
           apply: async (radio, on) => radio.sendCommand(radio.driver.cmdSetAutoNotch(!!on))
         },
         {
-          id: 'preamp', label: 'Preamp/Atten', kind: 'select', group: 'filter',
-          options: [
+          id: 'preamp', label: 'Preamp/Atten', kind: 'button-grid', group: 'filter', cols: 2,
+          buttons: [
             { value: 0, label: 'Off' }, { value: 1, label: 'P.AMP +10dB' }, 
             { value: 2, label: 'ATT -10dB' }, { value: 3, label: 'ATT -20dB' }
           ],
@@ -539,8 +582,8 @@
           apply: async (radio, v) => radio.sendCommand(radio.driver.cmdSetPreamp(Number(v)))
         },
         {
-          id: 'agc', label: 'AGC Speed', kind: 'select', group: 'filter',
-          options: [
+          id: 'agc', label: 'AGC Speed', kind: 'button-grid', group: 'filter', cols: 3,
+          buttons: [
             { value: 0, label: 'Fast' }, { value: 1, label: 'Mid' }, { value: 2, label: 'Slow' }
           ],
           read: (state) => readPath(state, 'agc.raw'),
@@ -566,8 +609,8 @@
           apply: async (radio, on) => radio.sendCommand(radio.driver.cmdSetVFOLock(!!on))
         },
         {
-          id: 'tuningstep', label: 'Tuning Step', kind: 'select', group: 'advanced',
-          options: [
+          id: 'tuningstep', label: 'Tuning Step', kind: 'button-grid', group: 'advanced', cols: 2,
+          buttons: [
             { value: 0, label: '1 Hz' }, { value: 1, label: '10 Hz' }, 
             { value: 2, label: '100 Hz' }, { value: 3, label: '1 kHz' }
           ],
